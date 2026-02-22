@@ -240,16 +240,13 @@ export const registerWithdrawal = mutation({
         if (hasPOPPermanente) {
             if (!args.authorizedById) {
                 throw new Error(
-                    "Los artículos de Exhibición requieren autorización de un Supervisor o Admin."
+                    "Los artículos de Exhibición o Material POP Crítico requieren que declares quién autorizó este movimiento."
                 );
             }
             const authorizer = await ctx.db.get(args.authorizedById);
-            if (
-                !authorizer ||
-                !["admin", "supervisor"].includes(authorizer.role || "")
-            ) {
+            if (!authorizer) {
                 throw new Error(
-                    "Autorización denegada. Solo un Supervisor o Admin puede aprobar este retiro."
+                    "La persona autorizadora seleccionada no existe en el sistema."
                 );
             }
         }

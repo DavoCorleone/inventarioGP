@@ -313,9 +313,12 @@ export default function RetirosPage() {
                                             className="form-label"
                                             style={{ margin: 0, color: "#92400E" }}
                                         >
-                                            Autorización requerida (Exhibición)
+                                            Declaración de Autorización (Material Crítico)
                                         </label>
                                     </div>
+                                    <p style={{ fontSize: 13, color: "#B45309", marginBottom: 12 }}>
+                                        El material seleccionado (POP/Exhibición) requiere que indiques con quién fue coordinada y autorizada esta salida.
+                                    </p>
                                     <select
                                         className="form-select"
                                         value={authorizedById}
@@ -323,7 +326,7 @@ export default function RetirosPage() {
                                         required
                                     >
                                         <option value="">
-                                            Seleccionar supervisor/admin...
+                                            Selecciona quién autorizó este movimiento...
                                         </option>
                                         {supervisors.map((u) => (
                                             <option key={u._id} value={u._id}>
