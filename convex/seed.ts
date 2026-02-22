@@ -57,8 +57,8 @@ export const seedAll = mutation({
         // 2. USERS
         // ==========================================
         const adminId = await ctx.db.insert("users", {
-            name: "D. Chavez",
-            email: "info@carlospalacios.com",
+            name: "David Chavez",
+            email: "info@automotorescarlospalacios.com",
             role: "admin",
             branchId: matrizId,
             approved: true,
