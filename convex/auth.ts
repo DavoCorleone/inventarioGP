@@ -47,6 +47,20 @@ const ResendProvider = {
         if (!res.ok) {
             const errText = await res.text();
             console.error("Resend API failed:", res.status, errText);
+
+            if (res.status === 403) {
+                console.warn(
+                    "\n\n=======================================================\n" +
+                    "⚠️ RESEND IS IN TEST MODE.\n" +
+                    "Email could not be delivered to " + to + "\n" +
+                    "MAGIC LINK URL: " + url + "\n" +
+                    "=======================================================\n\n"
+                );
+                // Return safely so the frontend doesn't crash, allowing the developer 
+                // to copy the URL from the terminal and log in.
+                return;
+            }
+
             throw new Error("Fetch a Resend falló: " + errText);
         }
     },
