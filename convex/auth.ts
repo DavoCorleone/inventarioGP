@@ -2,72 +2,21 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-
-// The Defensive Fallback for Resend (Magic Link)
-// Bypasses @auth/core HTTP logic to prevent "Connection lost" in Convex V8 runtime
-const ResendProvider = {
-    id: "resend",
-    type: "email" as const,
-    name: "Resend",
-    async sendVerificationRequest({ identifier: to, url }: any) {
-        const apiKey = process.env.AUTH_RESEND_KEY;
-        if (!apiKey) {
-            console.error("AUTH_RESEND_KEY missing in environment variables.");
-            throw new Error("Configuración del servidor incompleta. Contacta al administrador.");
-        }
-
-        const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: "onboarding@resend.dev",
-                to,
-                subject: `Ingreso a MIMS - Grupo Palacios`,
-                html: `
-                    <div style="font-family: sans-serif; padding: 20px; color: #333;">
-                        <h2>Acceso a MIMS</h2>
-                        <p>Haz solicitado ingresar al sistema de Inventario de Marketing.</p>
-                        <p>Haz clic en el siguiente enlace para iniciar sesión de forma segura:</p>
-                        <a href="${url}" style="background-color: #0056A4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                            Iniciar Sesión
-                        </a>
-                        <p style="font-size: 12px; color: #666; margin-top: 20px;">
-                            Si no solicitaste este acceso, ignora este correo. Este enlace expirará pronto.
-                        </p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
-                        <p style="font-size: 11px; color: #999;">Grupo Palacios MIMS © ${new Date().getFullYear()}</p>
-                    </div>
-                `,
-            }),
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            console.error("Resend API failed:", res.status, errText);
-
-            if (res.status === 403) {
-                console.warn(
-                    "\n\n=======================================================\n" +
-                    "⚠️ RESEND IS IN TEST MODE.\n" +
-                    "Email could not be delivered to " + to + "\n" +
-                    "MAGIC LINK URL: " + url + "\n" +
-                    "=======================================================\n\n"
-                );
-                // Return safely so the frontend doesn't crash, allowing the developer 
-                // to copy the URL from the terminal and log in.
-                return;
-            }
-
-            throw new Error("Fetch a Resend falló: " + errText);
-        }
-    },
-};
+import Google from "@auth/core/providers/google";
 
 export const { auth, signIn, signOut, store } = convexAuth({
-    providers: [ResendProvider],
+    providers: [
+        Google({
+            profile(profile) {
+                return {
+                    id: profile.sub,
+                    name: profile.name,
+                    email: profile.email,
+                    picture: profile.picture,
+                };
+            },
+        }),
+    ],
 });
 
 // Admin-only mutation to approve a pending user
