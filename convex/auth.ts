@@ -2,17 +2,19 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import Google from "@auth/core/providers/google";
+import { Password } from "@convex-dev/auth/providers/Password";
 
 export const { auth, signIn, signOut, store } = convexAuth({
     providers: [
-        Google({
-            profile(profile) {
+        Password({
+            profile(params) {
                 return {
-                    id: profile.sub,
-                    name: profile.name,
-                    email: profile.email,
-                    picture: profile.picture,
+                    email: params.email as string,
+                    name: params.name as string,
+                    role: params.role as string,
+                    branchId: params.branchId as string,
+                    loginMode: "password",
+                    approved: false, // Pending approval
                 };
             },
         }),
