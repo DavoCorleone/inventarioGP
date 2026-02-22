@@ -13,6 +13,7 @@ import type * as branches from "../branches.js";
 import type * as gemini from "../gemini.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
+import type * as migrations from "../migrations.js";
 import type * as packs from "../packs.js";
 import type * as reports from "../reports.js";
 import type * as seed from "../seed.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   gemini: typeof gemini;
   http: typeof http;
   inventory: typeof inventory;
+  migrations: typeof migrations;
   packs: typeof packs;
   reports: typeof reports;
   seed: typeof seed;
