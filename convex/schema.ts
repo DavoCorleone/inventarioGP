@@ -19,6 +19,7 @@ export default defineSchema({
     role: v.optional(v.union(v.literal("admin"), v.literal("supervisor"), v.literal("advisor"))),
     branchId: v.optional(v.id("branches")),
     approved: v.optional(v.boolean()), // Admin must approve before full access
+    loginMode: v.optional(v.string()), // Auth provider tracking
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
