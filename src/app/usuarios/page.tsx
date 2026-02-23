@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Users, Shield, User, MapPin, Check, X, Clock, UserPlus, Link as LinkIcon, Copy, Edit2, Trash2 } from "lucide-react";
+import { Users, Shield, User, MapPin, Check, X, Clock, UserPlus, Link as LinkIcon, Copy, Edit2, Trash2, AlertCircle } from "lucide-react";
 import { useMimsAuth } from "@/components/AppShell";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -37,27 +37,58 @@ export default function UsuariosPage() {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    // Polish states
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [isProcessing, setIsProcessing] = useState<Record<string, boolean>>({});
+    const [confirmDialog, setConfirmDialog] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        actionLabel: string;
+        actionType: "danger" | "primary";
+        onConfirm: () => void;
+    }>({ isOpen: false, title: "", message: "", actionLabel: "", actionType: "primary", onConfirm: () => { } });
+
     // Editing state
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
     const [editForm, setEditForm] = useState({ name: "", role: "", branchName: "" });
 
-    const handleApprove = async (userId: any) => {
-        if (!isAuthenticated) return;
+    const showToast = (message: string, type: "success" | "error" = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    const runAction = async (id: string, action: () => Promise<void>, successMsg?: string) => {
+        setIsProcessing(prev => ({ ...prev, [id]: true }));
         try {
-            await approveMutation({ userId });
-        } catch (e: any) {
-            alert(e.message || "Error al aprobar");
+            await action();
+            if (successMsg) showToast(successMsg, "success");
+        } catch (err: any) {
+            showToast(err.message || "Error al procesar la acción", "error");
+        } finally {
+            setIsProcessing(prev => ({ ...prev, [id]: false }));
         }
     };
 
-    const handleReject = async (userId: any) => {
-        if (!isAuthenticated || !confirm("¿Seguro que deseas rechazar y eliminar este registro?")) return;
-        try {
-            await rejectMutation({ userId });
-        } catch (e: any) {
-            alert(e.message || "Error al rechazar");
-        }
+    const handleApprove = (userId: any) => {
+        if (!isAuthenticated) return;
+        runAction(userId, async () => { await approveMutation({ userId }); }, "Usuario aprobado exitosamente.");
+    };
+
+    const handleReject = (userId: any) => {
+        if (!isAuthenticated) return;
+        setConfirmDialog({
+            isOpen: true,
+            title: "Rechazar Usuario",
+            message: "¿Estás seguro que deseas rechazar y eliminar definitivamente esta solicitud de acceso?",
+            actionLabel: "Rechazar Solicitud",
+            actionType: "danger",
+            onConfirm: () => {
+                runAction(userId, async () => { await rejectMutation({ userId }); }, "Solicitud rechazada.");
+                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const copyInviteLink = () => {
@@ -155,15 +186,19 @@ export default function UsuariosPage() {
                                                         className="btn btn-sm"
                                                         style={{ background: "var(--success)", color: "white", padding: "4px 12px" }}
                                                         onClick={() => handleApprove(pUser._id)}
+                                                        disabled={isProcessing[pUser._id]}
                                                     >
-                                                        <Check size={14} style={{ marginRight: 4 }} /> Aprobar
+                                                        {isProcessing[pUser._id] ? <span className="spinner" style={{ width: 14, height: 14, marginRight: 4 }} /> : <Check size={14} style={{ marginRight: 4 }} />}
+                                                        Aprobar
                                                     </button>
                                                     <button
                                                         className="btn btn-outline btn-sm"
                                                         style={{ color: "var(--danger)", borderColor: "var(--danger)", padding: "4px 12px" }}
                                                         onClick={() => handleReject(pUser._id)}
+                                                        disabled={isProcessing[pUser._id]}
                                                     >
-                                                        <X size={14} style={{ marginRight: 4 }} /> Rechazar
+                                                        {isProcessing[pUser._id] ? <span className="spinner" style={{ width: 14, height: 14, borderLeftColor: "var(--danger)", marginRight: 4 }} /> : <X size={14} style={{ marginRight: 4 }} />}
+                                                        Rechazar
                                                     </button>
                                                 </div>
                                             </td>
@@ -271,8 +306,9 @@ export default function UsuariosPage() {
                                                             style={{ padding: 4, color: "var(--danger)" }}
                                                             onClick={() => handleDelete(user._id, user.email)}
                                                             title="Eliminar Cuenta Definitivamente"
+                                                            disabled={isProcessing[user._id]}
                                                         >
-                                                            <Trash2 size={16} />
+                                                            {isProcessing[user._id] ? <span className="spinner" style={{ width: 16, height: 16, borderLeftColor: "var(--danger)" }} /> : <Trash2 size={16} />}
                                                         </button>
                                                     )}
                                                 </div>
@@ -361,9 +397,15 @@ export default function UsuariosPage() {
                         </div>
                         <form onSubmit={handleUpdate}>
                             <div className="modal-body">
-                                <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
-                                    Usuario: <strong>{editUser.email}</strong>
-                                </p>
+                                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, padding: "12px", background: "var(--bg-secondary)", borderRadius: 8 }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg, var(--jac-red), var(--jac-red-dark))", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 16 }}>
+                                        {editUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: 15 }}>{editUser.name}</div>
+                                        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{editUser.email}</div>
+                                    </div>
+                                </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Nombre Completo</label>
@@ -408,15 +450,74 @@ export default function UsuariosPage() {
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button type="button" className="btn btn-outline" onClick={() => setEditModalOpen(false)}>
+                                <button type="button" className="btn btn-outline" onClick={() => setEditModalOpen(false)} disabled={isProcessing["update-form"]}>
                                     Cancelar
                                 </button>
-                                <button type="submit" className="btn btn-primary">
-                                    Guardar Cambios
+                                <button type="submit" className="btn btn-primary" disabled={isProcessing["update-form"]}>
+                                    {isProcessing["update-form"] ? <span className="spinner" /> : "Guardar Cambios"}
                                 </button>
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+
+            {/* Custom Confirm Dialog Modal */}
+            {confirmDialog.isOpen && (
+                <div className="modal-overlay" style={{ zIndex: 1000 }}>
+                    <div className="modal fade-in" style={{ maxWidth: 400 }}>
+                        <div className="modal-header" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ background: confirmDialog.actionType === "danger" ? "var(--danger-light)" : "var(--primary-light)", color: confirmDialog.actionType === "danger" ? "var(--danger)" : "var(--primary)", padding: 8, borderRadius: "50%" }}>
+                                    <AlertCircle size={24} />
+                                </div>
+                                <h3 style={{ margin: 0 }}>{confirmDialog.title}</h3>
+                            </div>
+                        </div>
+                        <div className="modal-body" style={{ marginTop: 12 }}>
+                            <p style={{ color: "var(--text-secondary)", lineHeight: 1.5, margin: 0 }}>
+                                {confirmDialog.message}
+                            </p>
+                        </div>
+                        <div className="modal-footer" style={{ borderTop: "none", paddingTop: 0 }}>
+                            <button className="btn btn-outline" onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn"
+                                style={confirmDialog.actionType === "danger" ? { background: "var(--danger)", color: "white" } : { background: "var(--primary)", color: "white" }}
+                                onClick={confirmDialog.onConfirm}
+                            >
+                                {confirmDialog.actionLabel}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Toast Notifications */}
+            {toast && (
+                <div
+                    className="fade-in"
+                    style={{
+                        position: "fixed",
+                        bottom: 24,
+                        right: 24,
+                        background: toast.type === "success" ? "#10B981" : "#EF4444",
+                        color: "white",
+                        padding: "12px 24px",
+                        borderRadius: 8,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        zIndex: 9999,
+                        fontSize: 14,
+                        fontWeight: 500
+                    }}
+                >
+                    {toast.type === "success" ? <Check size={18} /> : <AlertCircle size={18} />}
+                    {toast.message}
                 </div>
             )}
         </>
