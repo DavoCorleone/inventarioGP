@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as appSettings from "../appSettings.js";
 import type * as approveSuperAdmin from "../approveSuperAdmin.js";
 import type * as auth from "../auth.js";
 import type * as branches from "../branches.js";
@@ -18,6 +19,7 @@ import type * as migrations from "../migrations.js";
 import type * as packs from "../packs.js";
 import type * as reports from "../reports.js";
 import type * as seed from "../seed.js";
+import type * as upload from "../upload.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +28,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  appSettings: typeof appSettings;
   approveSuperAdmin: typeof approveSuperAdmin;
   auth: typeof auth;
   branches: typeof branches;
@@ -36,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   packs: typeof packs;
   reports: typeof reports;
   seed: typeof seed;
+  upload: typeof upload;
 }>;
 
 /**
