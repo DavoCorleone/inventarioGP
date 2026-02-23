@@ -21,6 +21,7 @@ function LoginForm() {
     const [successMsg, setSuccessMsg] = useState("");
 
     const branches = useQuery(api.branches.listBranches);
+    const settings = useQuery(api.appSettings.getSettings);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,7 +47,16 @@ function LoginForm() {
                 await signIn("password", { email, password, flow: "signIn" });
             }
         } catch (err: any) {
-            setError(err.message || "Credenciales incorrectas");
+            const msg = err.message || "";
+            if (msg.includes("InvalidAccountId") || msg.includes("Invalid credentials")) {
+                setError("El correo no está registrado o la cuenta fue eliminada.");
+            } else if (msg.includes("InvalidSecret")) {
+                setError("La contraseña es incorrecta.");
+            } else if (msg.includes("TooManyFailedAttempts")) {
+                setError("Demasiados intentos fallidos. Inténtalo más tarde.");
+            } else {
+                setError(msg || "Error al iniciar sesión.");
+            }
         } finally {
             setLoading(false);
         }
@@ -56,7 +66,11 @@ function LoginForm() {
         <div className="login-page">
             <div className="login-card">
                 <div className="login-logo">
-                    <div className="login-logo-icon">GP</div>
+                    {settings?.logoUrl ? (
+                        <img src={settings.logoUrl} alt="Logo Grupo Palacios" style={{ maxHeight: 60, maxWidth: "100%", objectFit: "contain", marginBottom: 12 }} />
+                    ) : (
+                        <div className="login-logo-icon">GP</div>
+                    )}
                     <h2>MIMS</h2>
                     <p>Marketing Inventory Management System</p>
                 </div>

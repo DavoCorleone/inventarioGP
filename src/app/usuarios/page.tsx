@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Users, Shield, User, MapPin, Check, X, Clock } from "lucide-react";
+import { Users, Shield, User, MapPin, Check, X, Clock, UserPlus, Link as LinkIcon, Copy } from "lucide-react";
 import { useMimsAuth } from "@/components/AppShell";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -28,6 +29,9 @@ export default function UsuariosPage() {
     const approveMutation = useMutation(api.auth.approveUser);
     const rejectMutation = useMutation(api.auth.rejectUser);
 
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [copied, setCopied] = useState(false);
+
     const handleApprove = async (userId: any) => {
         if (!isAuthenticated) return;
         try {
@@ -46,11 +50,29 @@ export default function UsuariosPage() {
         }
     };
 
+    const copyInviteLink = () => {
+        const link = window.location.origin;
+        navigator.clipboard.writeText(link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     return (
         <>
-            <div className="page-header">
-                <h2>Usuarios</h2>
-                <p>Equipo Grupo Palacios — {users?.length ?? 0} usuarios registrados</p>
+            <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                    <h2>Usuarios</h2>
+                    <p>Equipo Grupo Palacios — {users?.length ?? 0} usuarios registrados</p>
+                </div>
+                {currentUser?.role === "admin" && (
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setShowInviteModal(true)}
+                    >
+                        <UserPlus size={18} />
+                        Invitar Usuario
+                    </button>
+                )}
             </div>
 
             <div className="page-body fade-in">
@@ -205,6 +227,62 @@ export default function UsuariosPage() {
                     ) : null}
                 </div>
             </div>
+
+            {/* Invite Modal */}
+            {showInviteModal && (
+                <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <div className="modal-header">
+                            <h3>Añadir Nuevo Usuario</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowInviteModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ textAlign: "center", marginBottom: 20 }}>
+                                <div style={{ background: "var(--bg-secondary)", width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "var(--primary)" }}>
+                                    <Shield size={32} />
+                                </div>
+                                <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Proceso de Registro Seguro</h4>
+                                <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                                    Para proteger el sistema, cada usuario debe establecer su propia contraseña directamente en la página de inicio.
+                                </p>
+                            </div>
+
+                            <hr style={{ border: "none", borderTop: "1px solid var(--border-color)", margin: "20px 0" }} />
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <div style={{ background: "var(--primary-light)", color: "var(--primary-dark)", width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>1</div>
+                                    <p style={{ margin: 0, fontSize: 14, color: "var(--text-primary)" }}>
+                                        <button className="btn-ghost" onClick={copyInviteLink} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px", color: "var(--primary)" }}>
+                                            {copied ? <Check size={14} /> : <Copy size={14} />} Copiar enlace de inicio
+                                        </button>
+                                        y envíalo al nuevo empleado.
+                                    </p>
+                                </div>
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <div style={{ background: "var(--primary-light)", color: "var(--primary-dark)", width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>2</div>
+                                    <p style={{ margin: 0, fontSize: 14, color: "var(--text-primary)" }}>
+                                        El empleado hará clic en <b>Registrarse</b>, llenará sus datos y creará su contraseña personal.
+                                    </p>
+                                </div>
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <div style={{ background: "var(--primary-light)", color: "var(--primary-dark)", width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>3</div>
+                                    <p style={{ margin: 0, fontSize: 14, color: "var(--text-primary)" }}>
+                                        Su cuenta aparecerá automáticamente en la sección superior de <b>Aprobaciones Pendientes</b> para que tú valides su acceso final.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-primary" onClick={() => setShowInviteModal(false)} style={{ width: "100%" }}>
+                                Entendido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

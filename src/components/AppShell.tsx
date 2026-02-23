@@ -37,10 +37,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         );
     }
 
-    // Require an approved user role to show the internal app shell
     const currentUser = user as any;
-    if (!isAuthenticated || !currentUser || !currentUser.approved) {
+
+    if (!isAuthenticated || !currentUser) {
         return <>{children}</>;
+    }
+
+    if (currentUser.approved === false) {
+        return (
+            <div className="login-page">
+                <div className="login-card" style={{ textAlign: "center" }}>
+                    <div className="login-logo-icon" style={{ margin: "0 auto 16px", background: "var(--warning)", color: "white" }}>⏳</div>
+                    <h2>Cuenta en Revisión</h2>
+                    <p style={{ marginTop: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                        Tu cuenta ha sido registrada existosamente pero está esperando la aprobación de un administrador del sistema para iniciar operaciones.
+                    </p>
+                    <button className="btn btn-outline" onClick={() => logout()} style={{ marginTop: 24, width: "100%", justifyContent: "center" }}>
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (

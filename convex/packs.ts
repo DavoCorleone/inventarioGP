@@ -92,14 +92,42 @@ export const updatePack = mutation({
         name: v.optional(v.string()),
         description: v.optional(v.string()),
         active: v.optional(v.boolean()),
+        items: v.optional(
+            v.array(
+                v.object({
+                    productId: v.id("products"),
+                    quantity: v.number(),
+                })
+            )
+        ),
     },
     handler: async (ctx, args) => {
-        const { id, ...updates } = args;
+        const { id, items, ...updates } = args;
         const cleanUpdates: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(updates)) {
             if (value !== undefined) cleanUpdates[key] = value;
         }
         await ctx.db.patch(id, cleanUpdates);
+
+        // If items are provided, replace the entire BOM list for this pack
+        if (items !== undefined) {
+            const existingItems = await ctx.db
+                .query("packItems")
+                .withIndex("by_pack", (q) => q.eq("packId", id))
+                .collect();
+
+            for (const item of existingItems) {
+                await ctx.db.delete(item._id);
+            }
+
+            for (const item of items) {
+                await ctx.db.insert("packItems", {
+                    packId: id,
+                    productId: item.productId,
+                    quantity: item.quantity,
+                });
+            }
+        }
     },
 });
 

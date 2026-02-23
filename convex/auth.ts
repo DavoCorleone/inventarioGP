@@ -65,6 +65,32 @@ export const rejectUser = mutation({
         const userToReject = await ctx.db.get(args.userId) as any;
         if (!userToReject) throw new Error("Usuario no encontrado.");
 
+        // First delete all sessions and their refresh tokens
+        const sessions = await ctx.db
+            .query("authSessions")
+            .withIndex("userId", (q) => q.eq("userId", args.userId))
+            .collect();
+
+        for (const session of sessions) {
+            const refreshTokens = await ctx.db
+                .query("authRefreshTokens")
+                .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+                .collect();
+            for (const rt of refreshTokens) {
+                await ctx.db.delete(rt._id);
+            }
+            await ctx.db.delete(session._id);
+        }
+
+        // Delete all auth accounts
+        const accounts = await ctx.db
+            .query("authAccounts")
+            .withIndex("userId", (q) => q.eq("userId", args.userId))
+            .collect();
+        for (const account of accounts) {
+            await ctx.db.delete(account._id);
+        }
+
         // We delete the unapproved account to keep the DB clean
         await ctx.db.delete(args.userId);
 
@@ -78,6 +104,43 @@ export const rejectUser = mutation({
 
         return { success: true };
     },
+});
+
+export const cleanupOrphanedAuth = mutation({
+    args: {},
+    handler: async (ctx) => {
+        // Find authAccounts that point to a non-existent user
+        const accounts = await ctx.db.query("authAccounts").collect();
+        let deletedAccounts = 0;
+        for (const account of accounts) {
+            const user = await ctx.db.get(account.userId as any);
+            if (!user) {
+                await ctx.db.delete(account._id);
+                deletedAccounts++;
+            }
+        }
+
+        // Find authSessions that point to a non-existent user
+        const sessions = await ctx.db.query("authSessions").collect();
+        let deletedSessions = 0;
+        for (const session of sessions) {
+            const user = await ctx.db.get(session.userId as any);
+            if (!user) {
+                // Also clean up refresh tokens for this session
+                const rts = await ctx.db
+                    .query("authRefreshTokens")
+                    .withIndex("sessionId", q => q.eq("sessionId", session._id))
+                    .collect();
+                for (const rt of rts) {
+                    await ctx.db.delete(rt._id);
+                }
+                await ctx.db.delete(session._id);
+                deletedSessions++;
+            }
+        }
+
+        return { deletedAccounts, deletedSessions };
+    }
 });
 
 export const getCurrentUser = query({

@@ -136,6 +136,11 @@ export default defineSchema({
     .index("by_product", ["productId"])
     .index("by_resolved", ["resolved"]),
 
+  appSettings: defineTable({
+    logoUrl: v.optional(v.string()), // The public URL of the logo uploaded
+    logoStorageId: v.optional(v.id("_storage")),
+  }).index("by_creation", ["_creationTime"]),
+
   auditLog: defineTable({
     userId: v.optional(v.id("users")),
     action: v.string(),

@@ -26,6 +26,7 @@ export const createBranch = mutation({
         locationDetails: v.string(),
         city: v.string(),
         active: v.boolean(),
+        managerId: v.optional(v.id("users")),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("branches", {
@@ -39,6 +40,7 @@ export const updateBranch = mutation({
         id: v.id("branches"),
         name: v.optional(v.string()),
         locationDetails: v.optional(v.string()),
+        city: v.optional(v.string()),
         managerId: v.optional(v.id("users")),
         active: v.optional(v.boolean()),
     },

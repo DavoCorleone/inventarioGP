@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as approveSuperAdmin from "../approveSuperAdmin.js";
 import type * as auth from "../auth.js";
 import type * as branches from "../branches.js";
 import type * as gemini from "../gemini.js";
@@ -25,6 +26,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  approveSuperAdmin: typeof approveSuperAdmin;
   auth: typeof auth;
   branches: typeof branches;
   gemini: typeof gemini;

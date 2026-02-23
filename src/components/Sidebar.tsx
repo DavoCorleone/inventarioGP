@@ -14,39 +14,13 @@ import {
     Menu,
     X,
     FileSpreadsheet,
+    Settings,
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
-const NAV_ITEMS = [
-    {
-        section: "Principal",
-        items: [
-            { label: "Dashboard", href: "/", icon: LayoutDashboard },
-        ],
-    },
-    {
-        section: "Operaciones",
-        items: [
-            { label: "Inventario", href: "/inventario", icon: Package },
-            { label: "Retiros", href: "/retiros", icon: ArrowDownToLine },
-            { label: "Packs", href: "/packs", icon: Boxes },
-        ],
-    },
-    {
-        section: "Administración",
-        items: [
-            { label: "Sucursales", href: "/sucursales", icon: Building2 },
-            { label: "Usuarios", href: "/usuarios", icon: Users },
-            { label: "Reportes", href: "/reportes", icon: FileSpreadsheet },
-        ],
-    },
-    {
-        section: "Inteligencia",
-        items: [
-            { label: "AI Insights", href: "/ai", icon: Brain },
-        ],
-    },
-];
+
 
 interface SidebarProps {
     userName?: string;
@@ -57,6 +31,35 @@ interface SidebarProps {
 export default function Sidebar({ userName = "Admin", userRole = "admin", onLogout }: SidebarProps) {
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const settings = useQuery(api.appSettings.getSettings);
+
+    const NAV_ITEMS = [
+        {
+            section: "Principal",
+            items: [{ label: "Dashboard", href: "/", icon: LayoutDashboard }],
+        },
+        {
+            section: "Operaciones",
+            items: [
+                { label: "Inventario", href: "/inventario", icon: Package },
+                { label: "Retiros", href: "/retiros", icon: ArrowDownToLine },
+                { label: "Packs", href: "/packs", icon: Boxes },
+            ],
+        },
+        {
+            section: "Administración",
+            items: [
+                { label: "Sucursales", href: "/sucursales", icon: Building2 },
+                { label: "Usuarios", href: "/usuarios", icon: Users },
+                { label: "Reportes", href: "/reportes", icon: FileSpreadsheet },
+                ...(userRole === "admin" ? [{ label: "Configuración", href: "/configuracion", icon: Settings }] : []),
+            ],
+        },
+        {
+            section: "Inteligencia",
+            items: [{ label: "AI Insights", href: "/ai", icon: Brain }],
+        },
+    ];
 
     const initials = userName
         .split(" ")
@@ -86,7 +89,11 @@ export default function Sidebar({ userName = "Admin", userRole = "admin", onLogo
             <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
                 <div className="sidebar-header">
                     <div className="sidebar-brand">
-                        <div className="sidebar-brand-logo">GP</div>
+                        {settings?.logoUrl ? (
+                            <img src={settings.logoUrl} alt="Logo" style={{ maxHeight: 40, maxWidth: "100%", objectFit: "contain", flexShrink: 0 }} />
+                        ) : (
+                            <div className="sidebar-brand-logo">GP</div>
+                        )}
                         <div>
                             <h1>MIMS</h1>
                             <p>Grupo Palacios</p>
