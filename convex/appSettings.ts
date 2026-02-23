@@ -55,3 +55,90 @@ export const updateLogo = mutation({
         return { success: true, logoUrl };
     }
 });
+
+export const updateFavicon = mutation({
+    args: {
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await auth.getUserId(ctx);
+        if (!userId) throw new Error("No autenticado");
+
+        const currentUser = await ctx.db.get(userId) as any;
+        if (currentUser?.role !== "admin") {
+            throw new Error("No tienes permisos para modificar la configuración.");
+        }
+
+        const faviconUrl = await ctx.storage.getUrl(args.storageId);
+        if (!faviconUrl) throw new Error("Error obteniendo URL de la imagen.");
+
+        const currentSettings = await ctx.db.query("appSettings").order("desc").first();
+
+        if (currentSettings) {
+            if (currentSettings.faviconStorageId) {
+                await ctx.storage.delete(currentSettings.faviconStorageId);
+            }
+            await ctx.db.patch(currentSettings._id, {
+                faviconUrl,
+                faviconStorageId: args.storageId,
+            });
+        } else {
+            await ctx.db.insert("appSettings", {
+                faviconUrl,
+                faviconStorageId: args.storageId,
+            });
+        }
+
+        await ctx.db.insert("auditLog", {
+            userId: currentUser._id,
+            action: "UPDATE_FAVICON",
+            details: `Favicon de la aplicación actualizado.`,
+            timestamp: Date.now(),
+        });
+
+        return { success: true, faviconUrl };
+    }
+});
+
+export const updateTheme = mutation({
+    args: {
+        appName: v.string(),
+        colors: v.object({
+            primary: v.string(),
+            sidebarBg: v.string(),
+            sidebarText: v.string(),
+        })
+    },
+    handler: async (ctx, args) => {
+        const userId = await auth.getUserId(ctx);
+        if (!userId) throw new Error("No autenticado");
+
+        const currentUser = await ctx.db.get(userId) as any;
+        if (currentUser?.role !== "admin") {
+            throw new Error("No tienes permisos para modificar la configuración.");
+        }
+
+        const currentSettings = await ctx.db.query("appSettings").order("desc").first();
+
+        if (currentSettings) {
+            await ctx.db.patch(currentSettings._id, {
+                appName: args.appName,
+                colors: args.colors,
+            });
+        } else {
+            await ctx.db.insert("appSettings", {
+                appName: args.appName,
+                colors: args.colors,
+            });
+        }
+
+        await ctx.db.insert("auditLog", {
+            userId: currentUser._id,
+            action: "UPDATE_THEME",
+            details: `Tematización visual central actualizada.`,
+            timestamp: Date.now(),
+        });
+
+        return { success: true };
+    }
+});

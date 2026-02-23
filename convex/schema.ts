@@ -139,6 +139,16 @@ export default defineSchema({
   appSettings: defineTable({
     logoUrl: v.optional(v.string()), // The public URL of the logo uploaded
     logoStorageId: v.optional(v.id("_storage")),
+    faviconUrl: v.optional(v.string()), // The public URL of the favicon
+    faviconStorageId: v.optional(v.id("_storage")),
+    appName: v.optional(v.string()),
+    colors: v.optional(
+      v.object({
+        primary: v.string(),
+        sidebarBg: v.string(),
+        sidebarText: v.string(),
+      })
+    ),
   }),
 
   auditLog: defineTable({
