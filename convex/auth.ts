@@ -85,7 +85,7 @@ export const rejectUser = mutation({
         // Delete all auth accounts
         const accounts = await ctx.db
             .query("authAccounts")
-            .withIndex("userId", (q) => q.eq("userId", args.userId))
+            .withIndex("userIdAndProvider", (q) => q.eq("userId", args.userId))
             .collect();
         for (const account of accounts) {
             await ctx.db.delete(account._id);
@@ -140,6 +140,126 @@ export const cleanupOrphanedAuth = mutation({
         }
 
         return { deletedAccounts, deletedSessions };
+    }
+});
+
+export const updateUser = mutation({
+    args: {
+        userId: v.id("users"),
+        name: v.optional(v.string()),
+        role: v.optional(v.union(v.literal("admin"), v.literal("supervisor"), v.literal("advisor"))),
+        branchName: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const callerId = await auth.getUserId(ctx);
+        if (!callerId) throw new Error("No autenticado");
+
+        const caller = await ctx.db.get(callerId) as any;
+        const targetUser = await ctx.db.get(args.userId) as any;
+
+        if (!targetUser) throw new Error("Usuario no encontrado");
+
+        // Logic check: Admin has full rights. Supervisor can only edit Advisors (and only name/branch).
+        if (caller.role === "admin") {
+            const updates: any = {};
+            if (args.name !== undefined) updates.name = args.name;
+            if (args.role !== undefined) updates.role = args.role;
+            if (args.branchName !== undefined) updates.branchName = args.branchName;
+
+            await ctx.db.patch(args.userId, updates);
+
+            await ctx.db.insert("auditLog", {
+                userId: caller._id,
+                action: "UPDATE_USER_PROFILE",
+                details: `Admin ha editado el perfil de ${targetUser.email}`,
+                entityType: "users",
+                entityId: targetUser._id.toString(),
+                timestamp: Date.now(),
+            });
+
+        } else if (caller.role === "supervisor") {
+            if (targetUser.role !== "advisor") {
+                throw new Error("Supervisores solo pueden editar perfiles de Asesores.");
+            }
+            if (args.role !== undefined && args.role !== "advisor") {
+                throw new Error("Supervisores no pueden promover usuarios de nivel.");
+            }
+
+            const updates: any = {};
+            if (args.name !== undefined) updates.name = args.name;
+            if (args.branchName !== undefined) updates.branchName = args.branchName;
+
+            await ctx.db.patch(args.userId, updates);
+
+            await ctx.db.insert("auditLog", {
+                userId: caller._id,
+                action: "UPDATE_USER_PROFILE",
+                details: `Supervisor ha editado al asesor ${targetUser.email}`,
+                entityType: "users",
+                entityId: targetUser._id.toString(),
+                timestamp: Date.now(),
+            });
+        } else {
+            throw new Error("No tienes permisos para editar usuarios.");
+        }
+    }
+});
+
+export const deleteUser = mutation({
+    args: {
+        userId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        const callerId = await auth.getUserId(ctx);
+        if (!callerId) throw new Error("No autenticado");
+
+        const caller = await ctx.db.get(callerId) as any;
+        if (caller.role !== "admin") {
+            throw new Error("Solo los administradores pueden eliminar usuarios.");
+        }
+
+        if (callerId === args.userId) {
+            throw new Error("No puedes eliminarte a ti mismo para evitar perder el acceso al sistema.");
+        }
+
+        const targetUser = await ctx.db.get(args.userId) as any;
+        if (!targetUser) throw new Error("Usuario no encontrado.");
+
+        // We delete their active session bounds
+        const authAccounts = await ctx.db
+            .query("authAccounts")
+            .withIndex("userIdAndProvider", (q) => q.eq("userId", args.userId))
+            .collect();
+        const authSessions = await ctx.db
+            .query("authSessions")
+            .withIndex("userId", (q) => q.eq("userId", args.userId))
+            .collect();
+        const authRefreshTokens = await ctx.db
+            .query("authRefreshTokens")
+            .withIndex("sessionId", (q) => q.eq("sessionId", authSessions[0]?._id))
+            .collect();
+
+        for (const record of authAccounts) {
+            await ctx.db.delete(record._id);
+        }
+        for (const record of authRefreshTokens) {
+            await ctx.db.delete(record._id);
+        }
+        for (const record of authSessions) {
+            await ctx.db.delete(record._id);
+        }
+
+        // Drop the user instance globally
+        await ctx.db.delete(args.userId);
+
+        await ctx.db.insert("auditLog", {
+            userId: caller._id,
+            action: "DELETE_USER",
+            details: `Cuenta eliminada definitivamente: ${targetUser.email}`,
+            entityType: "users",
+            entityId: args.userId.toString(),
+            timestamp: Date.now(),
+        });
     }
 });
 

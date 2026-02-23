@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Users, Shield, User, MapPin, Check, X, Clock, UserPlus, Link as LinkIcon, Copy } from "lucide-react";
+import { Users, Shield, User, MapPin, Check, X, Clock, UserPlus, Link as LinkIcon, Copy, Edit2, Trash2 } from "lucide-react";
 import { useMimsAuth } from "@/components/AppShell";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -28,9 +28,19 @@ export default function UsuariosPage() {
 
     const approveMutation = useMutation(api.auth.approveUser);
     const rejectMutation = useMutation(api.auth.rejectUser);
+    const updateMutation = useMutation(api.auth.updateUser);
+    const deleteMutation = useMutation(api.auth.deleteUser);
+
+    // For editing assignment options
+    const branches = useQuery(api.branches.listBranches);
 
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    // Editing state
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editUser, setEditUser] = useState<any>(null);
+    const [editForm, setEditForm] = useState({ name: "", role: "", branchName: "" });
 
     const handleApprove = async (userId: any) => {
         if (!isAuthenticated) return;
@@ -55,6 +65,36 @@ export default function UsuariosPage() {
         navigator.clipboard.writeText(link);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const openEditModal = (user: any) => {
+        setEditUser(user);
+        setEditForm({ name: user.name, role: user.role, branchName: user.branchName || "" });
+        setEditModalOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await updateMutation({
+                userId: editUser._id,
+                name: editForm.name,
+                role: editForm.role as "admin" | "supervisor" | "advisor",
+                branchName: editForm.branchName
+            });
+            setEditModalOpen(false);
+        } catch (err: any) {
+            alert(err.message || "Error al actualizar usuario");
+        }
+    };
+
+    const handleDelete = async (userId: string, email: string) => {
+        if (!confirm(`¿Eliminar definitivamente a ${email}? Esta acción cortará todas sus sesiones activas y no se puede deshacer.`)) return;
+        try {
+            await deleteMutation({ userId: userId as any });
+        } catch (err: any) {
+            alert(err.message || "Error al eliminar usuario");
+        }
     };
 
     return (
@@ -145,6 +185,7 @@ export default function UsuariosPage() {
                                     <th>Rol</th>
                                     <th>Sucursal</th>
                                     <th>Modo Login</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -211,6 +252,30 @@ export default function UsuariosPage() {
                                                             ? "🔑 Passkey"
                                                             : "🔐 Híbrido"}
                                                 </span>
+                                            </td>
+                                            <td>
+                                                <div style={{ display: "flex", gap: 8 }}>
+                                                    {(currentUser?.role === "admin" || (currentUser?.role === "supervisor" && user.role === "advisor")) && (
+                                                        <button
+                                                            className="btn-ghost"
+                                                            style={{ padding: 4, color: "var(--text-secondary)" }}
+                                                            onClick={() => openEditModal(user)}
+                                                            title="Editar Perfil"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                    )}
+                                                    {currentUser?.role === "admin" && user._id !== currentUser._id && (
+                                                        <button
+                                                            className="btn-ghost"
+                                                            style={{ padding: 4, color: "var(--danger)" }}
+                                                            onClick={() => handleDelete(user._id, user.email)}
+                                                            title="Eliminar Cuenta Definitivamente"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -280,6 +345,77 @@ export default function UsuariosPage() {
                                 Entendido
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit User Modal */}
+            {editModalOpen && editUser && (
+                <div className="modal-overlay" onClick={() => setEditModalOpen(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 450 }}>
+                        <div className="modal-header">
+                            <h3>Editar Usuario</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setEditModalOpen(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdate}>
+                            <div className="modal-body">
+                                <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
+                                    Usuario: <strong>{editUser.email}</strong>
+                                </p>
+
+                                <div className="form-group">
+                                    <label className="form-label">Nombre Completo</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={editForm.name}
+                                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Rol de Acceso</label>
+                                    <select
+                                        className="form-select"
+                                        value={editForm.role}
+                                        onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                                        disabled={currentUser?.role !== "admin"} // Only Admins can edit roles
+                                    >
+                                        <option value="advisor">Asesor Comercial</option>
+                                        <option value="supervisor">Supervisor Ejecutivo</option>
+                                        <option value="admin">Administrador SuperUser</option>
+                                    </select>
+                                    {currentUser?.role !== "admin" && (
+                                        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Solo los administradores pueden cambiar roles.</p>
+                                    )}
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Sucursal / Agencia</label>
+                                    <select
+                                        className="form-select"
+                                        value={editForm.branchName}
+                                        onChange={e => setEditForm({ ...editForm, branchName: e.target.value })}
+                                    >
+                                        <option value="">Oficina Central (Sin asignar)</option>
+                                        {branches?.map(b => (
+                                            <option key={b._id} value={b.name}>{b.name} ({b.city})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-outline" onClick={() => setEditModalOpen(false)}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn btn-primary">
+                                    Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
